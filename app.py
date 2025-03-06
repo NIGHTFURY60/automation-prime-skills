@@ -481,203 +481,74 @@
 
 
 
+import logging
 from selenium import webdriver
 from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
 import time
 
+# Configure logging to capture errors
+logging.basicConfig(
+    filename='automation.log', 
+    level=logging.ERROR, 
+    format='%(asctime)s - %(levelname)s - %(message)s'
+)
 
-def wait_and_click(driver, locator, timeout=10):
-    """Wait for an element to be clickable and click it."""
-    element = WebDriverWait(driver, timeout).until(
-        EC.element_to_be_clickable(locator)
+# Credentials
+EMAIL = "jeswinchristie1234@gmail.com"
+PASSWORD = "Jeswin@2006"
+
+try:
+    # Initialize WebDriver and open the main website
+    driver = webdriver.Chrome()
+    driver.get("https://www.futureskillsprime.in/")
+    driver.maximize_window()
+    time.sleep(5)
+
+    # Click on the header's Login button to open the login popup modal
+    WebDriverWait(driver, 10).until(
+        EC.element_to_be_clickable((By.XPATH, "//a[contains(text(),'Log in')]"))
+    ).click()
+    time.sleep(3)
+    # Wait for the login modal to appear; locate fields using placeholder attributes
+    WebDriverWait(driver, 10).until(
+        EC.visibility_of_element_located((By.ID,"userid_temp"))
     )
-    element.click()
-    return element
-    try:
-        cookie_btn = driver.find_element(By.XPATH, "//button[contains(text(), 'Accept Cookies')]")
-        cookie_btn.click()
-        time.sleep(1)
-    except:
-        pass  # If no cookie popup, ignore
+    time.sleep(3)
+    # Enter login details into the text boxes identified by their placeholders
+    driver.find_element(By.ID,"userid_temp").send_keys(EMAIL)
+    driver.find_element(By.ID,"confData").send_keys(PASSWORD)
 
-def process_lessons(driver):
-    """
-    Process each lesson:
-    - Click the lesson's "Get Started" button.
-    - Click the "View Content" link, switch to new tab, and close it.
-    - Click the "Mark as Complete" link.
-    """
-    # Locate all lesson cards that have a "Get Started" button.
-    lesson_buttons = driver.find_elements(By.XPATH, "//button[contains(text(),'Get Started')]")
-    print(f"Found {len(lesson_buttons)} lesson(s) for processing.")
+    time.sleep(3)
+    # Click on the login button using its given ID (adjust 'loginBtn' as needed)
+    WebDriverWait(driver, 10).until(
+        EC.element_to_be_clickable((By.XPATH, "//a[contains(text(),'Login')]"))
+    ).click()
 
-    for idx, lesson in enumerate(lesson_buttons):
-        try:
-            # Open the lesson
-            lesson.click()
-            print(f"Lesson {idx+1}: 'Get Started' clicked.")
-            time.sleep(2)  # wait for lesson content to load
+    # Wait for the page to load after logging in
+    time.sleep(5)
 
-            # Click the "View Content" hyperlink
-            view_content = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.LINK_TEXT, "View Content"))
-            )
-            view_content.click()
-            print(f"Lesson {idx+1}: 'View Content' clicked.")
-            time.sleep(2)
+    # Navigate to the Groups page (if not automatically redirected)
+    driver.get("https://www.futureskillsprime.in/iDH/fsp/Dashboard/Groups")
+    time.sleep(5)
 
-            # Handle the new tab if it opens
-            if len(driver.window_handles) > 1:
-                driver.switch_to.window(driver.window_handles[-1])
-                driver.close()
-                driver.switch_to.window(driver.window_handles[0])
-                print(f"Lesson {idx+1}: New tab closed.")
-            else:
-                print(f"Lesson {idx+1}: New tab did not open as expected.")
-
-
-
-        except Exception as e:
-            print(f"Error processing lesson {idx+1}: {e}")
-    try:
-        # Wait for the link to be clickable
-        link = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.XPATH, "//a[contains(normalize-space(text()), 'Mark as Complete')]"))
-        )
-        
-        # Scroll to the link (in case it’s off-screen)
-        driver.execute_script("arguments[0].scrollIntoView(true);", link)
-        time.sleep(1)
-        
-        # Attempt a normal click
-        link.click()
-        print("Successfully clicked 'Mark as Complete' via normal click.")
-
-    except Exception as e:
-        print("Normal click failed, trying JavaScript click. Error:", e)
-        try:
-            # If normal click fails, do a JS click as a fallback
-            link = driver.find_element(By.XPATH, "//a[contains(normalize-space(text()), 'Mark as Complete')]")
-            driver.execute_script("arguments[0].scrollIntoView(true);", link)
-            time.sleep(1)
-            driver.execute_script("arguments[0].click();", link)
-            print("Successfully clicked 'Mark as Complete' via JavaScript.")
-        except Exception as ex:
-            print("Could not click 'Mark as Complete' at all. Error:", ex)
+    # Click on the "Visit" button
+    WebDriverWait(driver, 10).until(EC.element_to_be_clickable(
+        (By.XPATH, "//button[contains(text(),'Visit')]")
+    )).click()
+    time.sleep(8)
+    
     
 
-def process_quiz(driver):
-    """
-    Process the quiz:
-    - Launch quiz via the "Launch" button.
-    - Click "Start Quiz".
-    - For each question (assumed to be 5), select the first radio button, submit, and click next.
-    - For the final question, view result, continue, and close the quiz.
-    """
-    try:
-        # Launch quiz
-        launch_button = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Launch')]"))
-        )
-        launch_button.click()
-        print("Quiz: 'Launch' button clicked.")
-        time.sleep(2)
-
-        # Click the "Start Quiz" button on the quiz page
-        start_quiz = WebDriverWait(driver, 10).until(
-            EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Start Quiz')]"))
-        )
-        start_quiz.click()
-        print("Quiz: 'Start Quiz' button clicked.")
-        time.sleep(2)
-
-        # Process quiz questions; adjust the range if there are more than 5
-        for q in range(5):
-            # Wait for radio buttons to appear and select the first option
-            radios = WebDriverWait(driver, 10).until(
-                EC.presence_of_all_elements_located((By.XPATH, "//input[@type='radio']"))
-            )
-            if radios:
-                radios[0].click()
-                print(f"Quiz Q{q+1}: First answer selected.")
-            else:
-                print(f"Quiz Q{q+1}: No radio buttons found.")
-            time.sleep(1)
-
-            # Submit the answer
-            wait_and_click(driver, (By.XPATH, "//button[contains(text(),'Submit')]"), timeout=10)
-            print(f"Quiz Q{q+1}: Answer submitted.")
-            time.sleep(2)
-
-            if q < 4:
-                # For questions 1-4, click "Next Question"
-                wait_and_click(driver, (By.XPATH, "//button[contains(text(),'Next Question')]"), timeout=10)
-                print(f"Quiz Q{q+1}: Moved to next question.")
-                time.sleep(2)
-            else:
-                # For the last question, click "View Result"
-                wait_and_click(driver, (By.XPATH, "//button[contains(text(),'View Result')]"), timeout=10)
-                print("Quiz Q5: 'View Result' clicked.")
-                time.sleep(2)
-
-        # Continue after viewing results
-        wait_and_click(driver, (By.XPATH, "//button[contains(text(),'Continue')]"), timeout=10)
-        print("Quiz: 'Continue' clicked.")
-        time.sleep(2)
-        wait_and_click(driver, (By.XPATH, "//button[contains(text(),'Process My Result & Close')]"), timeout=10)
-        print("Quiz: 'Process My Result & Close' clicked. Quiz complete.")
-        time.sleep(2)
-        driver.back()  # Return to the pathway page
-        print("Returned to pathway page.")
-        time.sleep(2)
-
-    except Exception as e:
-        print("Error during quiz processing:", e)
-
-def automate_chapter(driver):
-    """
-    Automate one chapter of the pathway:
-    - Optionally click the chapter-level "Get Started" buttons (if available).
-    - Process all lessons.
-    - Process the quiz at the end of the chapter.
-    """
-    # If the chapter contains multiple sections that require clicking "Get Started" (three times)
-    for i in range(3):
-        try:
-            # Use an indexed XPath to click distinct chapter sections if they exist
-            section = WebDriverWait(driver, 10).until(
-                EC.element_to_be_clickable((By.XPATH, f"(//button[contains(text(),'Get Started')])[{i+1}]"))
-            )
-            section.click()
-            print(f"Chapter section {i+1}: 'Get Started' clicked.")
-            time.sleep(2)
-        except Exception as e:
-            print(f"Error clicking chapter section {i+1}: {e}")
-
-    # Process lessons within the chapter
-    process_lessons(driver)
-
-    # Process the quiz at the end of the chapter
-    process_quiz(driver)
-
-def main():
-    # Initialize the WebDriver (ensure chromedriver is installed and in your PATH)
-    driver = webdriver.Chrome()
-    driver.maximize_window()
-    driver.get("https://www.futureskillsprime.in/")
-
-    # Pause to allow manual login and navigation to the pathway page.
-    input("Please log in and navigate to your pathway page, then press Enter to continue...")
-
-    while True:
-        automate_chapter(driver)
-        cont = input("Chapter automation complete. Continue with the next chapter? (y/n): ")
-        if cont.lower() != 'y':
-            break
-
-    driver.quit()
-
-if __name__ == "__main__":
-    main()
+    # Click "Get Started" on the Course Journey page
+    driver.execute_script("window.scrollBy(0, 530);")
+    time.sleep(2)
+    
+    WebDriverWait(driver, 20).until(EC.element_to_be_clickable(
+        (By.CLASS_NAME, "enrol_btn_text.p-0.text-nowrap")
+    )).click()
+    time.sleep(5)
+    
+    # works untill this point
