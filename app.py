@@ -51,11 +51,11 @@ class CourseAutomation:
         try:
             self.driver.get("https://www.futureskillsprime.in/")
             time.sleep(3)
-            
+
             # Click login button
             self.wait_and_click(By.XPATH, "//a[contains(text(),'Log in')]")
             time.sleep(2)
-            
+    
             # Enter credentials
             email_field = WebDriverWait(self.driver, 10).until(
                 EC.presence_of_element_located((By.ID, "userid_temp"))
@@ -69,7 +69,7 @@ class CourseAutomation:
             self.wait_and_click(By.XPATH, "//a[contains(text(),'Login')]")
             time.sleep(5)
             logging.info("Login successful")
-            
+        
         except Exception as e:
             logging.error(f"Login failed: {e}")
             raise
@@ -137,13 +137,13 @@ class CourseAutomation:
             print(f"\nTotal pathways found: {self.pathway_count}")  # Visual feedback
             logging.info(f"Total pathways found: {self.pathway_count}")
             
-            # Log individual pathways for verification
-            for idx, pathway in enumerate(self.all_pathways, 1):
-                try:
-                    print(f"Pathway {idx}: {pathway.text}")
-                    logging.info(f"Pathway {idx}: {pathway.text}")
-                except:
-                    continue
+            # # Log individual pathways for verification
+            # for idx, pathway in enumerate(self.all_pathways, 1):
+            #     try:
+            #         print(f"Pathway {idx}: {pathway.text}")
+            #         logging.info(f"Pathway {idx}: {pathway.text}")
+            #     except:
+            #         continue
             
             # Scroll back to top
             self.driver.execute_script("window.scrollTo(0, 0);")
@@ -262,5 +262,153 @@ class CourseAutomation:
         """Handle the quiz section"""
         try:
             # Launch quiz
-            self.wait_and_click(By.CLASS_NAME, "btn.launchBtn")
+            launch_button = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.CLASS_NAME, "btn.launchBtn"))
+            )
+            self.driver.execute_script("arguments[0].click();", launch_button)
             time.sleep(3)
+            
+            # Switch to quiz tab
+            self.driver.switch_to.window(self.driver.window_handles[1])
+            time.sleep(3)  # Increased wait time for tab load
+            
+            # Wait for button and click using xpath with current node
+            container = WebDriverWait(self.driver, 10).until(
+                EC.presence_of_element_located((By.XPATH, "//div[contains(@class, 'surveybtn-container')]"))
+            )
+            element = container.find_element(By.XPATH, ".//a[@class='start_quiz_btn start_btn']")
+            time.sleep(15)  # Wait 15 seconds before clicking
+            self.driver.execute_script("arguments[0].click();", element)
+            time.sleep(2)
+            
+            logging.info("Start Quiz button clicked successfully")
+            
+            # Handle 5 questions
+            for q in range(5):
+                print(f"Processing question {q+1}/5")
+                # Select first radio button
+                radios = WebDriverWait(self.driver, 10).until(
+                    EC.presence_of_all_elements_located((By.XPATH, "//input[@type='radio']"))
+                )
+                if radios:
+                    try:
+                        radios[0].click()
+                    except:
+                        self.driver.execute_script("arguments[0].click();", radios[0])
+                
+                # Submit answer
+                submit_button = WebDriverWait(self.driver, 10).until(
+                    EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Submit')]"))
+                )
+                self.driver.execute_script("arguments[0].click();", submit_button)
+                time.sleep(2)
+                
+                if q < 4:  # For first 4 questions
+                    next_button = WebDriverWait(self.driver, 10).until(
+                        EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Next Question')]"))
+                    )
+                    self.driver.execute_script("arguments[0].click();", next_button)
+                else:  # For last question
+                    view_result = WebDriverWait(self.driver, 10).until(
+                        EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'View Result')]"))
+                    )
+                    self.driver.execute_script("arguments[0].click();", view_result)
+                time.sleep(2)
+            
+            # Complete quiz
+            continue_button = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Continue')]"))
+            )
+            self.driver.execute_script("arguments[0].click();", continue_button)
+            time.sleep(2)
+            
+            process_button = WebDriverWait(self.driver, 10).until(
+                EC.element_to_be_clickable((By.XPATH, "//button[contains(text(),'Process My Result & Close')]"))
+            )
+            self.driver.execute_script("arguments[0].click();", process_button)
+            time.sleep(2)
+            
+            # Switch back to main window
+            self.driver.switch_to.window(self.driver.window_handles[0])
+            logging.info("Quiz completed successfully")
+            return True
+        except Exception as e:
+            logging.error(f"Failed to complete quiz: {e}")
+            print(f"Quiz error: {str(e)}")  # Added for better debugging
+            return False
+
+    def process_pathway(self):
+        """Process a complete pathway"""
+        try:
+            # Find the ongoing pathway
+            ongoing_pathway = self.find_ongoing_pathway()
+            if not ongoing_pathway:
+                logging.error("No ongoing pathway found")
+                return False
+            
+            # Click Get Started on the ongoing pathway
+            try:
+                get_started = ongoing_pathway.find_element(By.XPATH, ".//button[contains(text(),'Get Started')]")
+                get_started.click()
+                time.sleep(3)
+            except Exception as e:
+                logging.error(f"Failed to click Get Started on ongoing pathway: {e}")
+                return False
+            
+            # Process all lessons
+            while True:
+                try:
+                    if not self.process_lesson():
+                        break
+                except:
+                    break
+            
+            # Handle quiz
+            self.handle_quiz()
+            
+            # Go back to pathways page
+            self.driver.back()
+            time.sleep(3)
+            
+            logging.info("Pathway completed successfully")
+            return True
+        except Exception as e:
+            logging.error(f"Failed to process pathway: {e}")
+            return False
+
+    def run(self):
+        """Main execution method"""
+        try:
+            self.setup_driver()
+            self.login()
+            self.navigate_to_course()
+            
+            # Count pathways first
+            total_pathways = self.count_pathways()
+            print(f"\nFound {total_pathways} total pathways")
+            time.sleep(2)  # Give time to see the count
+            
+            while True:
+                if not self.process_pathway():
+                    break
+                
+                # Ask user if they want to continue
+                user_input = input("Continue with next pathway? (y/n): ")
+                if user_input.lower() != 'y':
+                    break
+            
+        except Exception as e:
+            logging.error(f"Automation failed: {e}")
+        finally:
+            if self.driver:
+                self.driver.quit()
+
+if __name__ == "__main__":
+    # Replace with your credentials
+    EMAIL = "jeswinchristie1234@gmail.com"
+    PASSWORD = "Jeswin@2006"
+    
+    automation = CourseAutomation(EMAIL, PASSWORD)
+    automation.run()
+
+
